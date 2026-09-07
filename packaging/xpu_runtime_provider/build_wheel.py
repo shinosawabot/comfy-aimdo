@@ -11,6 +11,8 @@ import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 import time
 import zipfile
@@ -27,6 +29,56 @@ ENTRY_POINT_GROUP = "comfyui_omnixpu.runtime_providers"
 SOURCE_REPOSITORY = "https://github.com/xiangyuT/comfy-aimdo-xpu.git"
 SUPPORTED_PLATFORMS = ("linux", "win32")
 _REVISION_PATTERN = re.compile(r"[0-9a-f]{40}")
+_COMPILER_SYMBOLS = (
+    "malloc_graph_create", "malloc_graph_push", "malloc_graph_pop",
+    "malloc_graph_pause", "malloc_graph_set_stream", "malloc_graph_abort",
+    "malloc_graph_stat", "malloc_graph_destroy", "malloc_graph_abi_version",
+    "malloc_graph_capabilities", "malloc_graph_source_revision",
+    "malloc_graph_source_content_sha256",
+)
+
+
+def _compiler_api_contract(source_version, files):
+    """Admit the finite D0 API boundary only with a complete native payload.
+
+    This records API compatibility, not an executable memory compiler. Runtime
+    control.init() separately checks the ABI and keeps XPU recording disabled.
+    Legacy payloads retain their original exact-version contract.
+    """
+    prefix = CANONICAL_PACKAGE + "/"
+    if prefix + "malloc_graph.py" not in files:
+        return None
+    required = {prefix + name + ".py" for name in
+                ("control", "malloc_graph", "host_buffer", "model_vbar", "vram_buffer", "torch")}
+    if not required.issubset(files):
+        raise RuntimeError("compiler-aware provider has an incomplete Python module set")
+    if source_version != "0.4.15":
+        raise RuntimeError("compiler API compatibility requires review for this source version")
+    native = [(name, data) for name, data in files.items()
+              if PurePosixPath(name).name in ("aimdo_xpu.so", "aimdo_xpu.dll")]
+    for name, data in native:
+        suffix = PurePosixPath(name).suffix
+        with tempfile.TemporaryDirectory(prefix="aimdo-abi-inspect-") as temporary:
+            path = Path(temporary) / PurePosixPath(name).name
+            path.write_bytes(data)
+            if suffix == ".so":
+                tool = shutil.which("nm")
+                command = [tool, "-D", "--defined-only", str(path)] if tool else None
+            else:
+                tool = shutil.which("dumpbin")
+                command = [tool, "/EXPORTS", str(path)] if tool else None
+            if command is None:
+                raise RuntimeError("native export inspection requires nm (ELF) or dumpbin (PE)")
+            inspected = subprocess.run(command, capture_output=True, text=True, check=True)
+            symbols = set(inspected.stdout.split())
+            missing = set(_COMPILER_SYMBOLS) - symbols
+            if missing:
+                raise RuntimeError("compiler-aware provider is missing native exports: " + ", ".join(sorted(missing)))
+    return {"schema_version": 1, "compiler_abi_revision": 1,
+            "upstream_reference_revision": "9a688a905b85402ef696beedaab8313a9759cc52",
+            "canonical_versions": ["0.4.15", "0.5.2"],
+            "required_modules": sorted(required), "required_native_symbols": list(_COMPILER_SYMBOLS),
+            "xpu_recording_supported": False}
 
 
 def _sha256(data: bytes) -> str:
@@ -144,6 +196,7 @@ def _manifest(
     torch_version: str,
     xpu_target: str,
     vendored_files: dict[str, bytes],
+    compiler_api: dict | None = None,
 ) -> dict[str, object]:
     file_hashes = {
         name: _sha256(data) for name, data in sorted(vendored_files.items())
@@ -163,7 +216,7 @@ def _manifest(
         "provider_package": PROVIDER_PACKAGE,
         "canonical_distribution": {
             "name": CANONICAL_DISTRIBUTION,
-            "compatible_versions": [source_version],
+            "compatible_versions": compiler_api["canonical_versions"] if compiler_api else [source_version],
         },
         "canonical_import": CANONICAL_PACKAGE,
         "source": {
@@ -190,6 +243,7 @@ def _manifest(
         "vendor_root": f"{PROVIDER_PACKAGE}/_vendor",
         "vendored_files": file_hashes,
         "native_artifacts": native_artifacts,
+        **({"api_compatibility": compiler_api} if compiler_api else {}),
     }
 
 
@@ -218,6 +272,7 @@ def build_provider_wheel(
         tags,
         source_files,
     ) = _source_wheel_contract(source_wheel)
+    compiler_api = _compiler_api_contract(source_version, source_files)
     vendored_files = {
         f"{PROVIDER_PACKAGE}/_vendor/{name}": data
         for name, data in source_files.items()
@@ -229,6 +284,7 @@ def build_provider_wheel(
         torch_version=torch_version,
         xpu_target=xpu_target,
         vendored_files=vendored_files,
+        compiler_api=compiler_api,
     )
 
     dist_info = (

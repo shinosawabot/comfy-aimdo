@@ -24,6 +24,21 @@ canonical version, exact source revision, source-wheel hash, native-library
 hash, supported runtime, and allocator modes. Importing its metadata does not
 import PyTorch or AIMDO.
 
+When the source contains `malloc_graph.py`, the builder requires the complete
+provider module set and all twelve compiler ABI/provenance exports in the native
+library. This source currently declares the finite official API combinations
+`0.4.15` and `0.5.2`, with upstream semantic reference
+`9a688a905b85402ef696beedaab8313a9759cc52`. The provider distribution keeps the
+source wheel's existing version. Source revision and native content hashes
+identify development changes independently of that version.
+
+`control.get_memory_compiler_capability()` reports the built core separately
+from runtime availability. XPU recording remains unavailable until a logical
+allocation router and its lifetime contract are implemented and validated;
+explicit `record(xpu_stream)` raises an unsupported error. `malloc_graph` and
+`control` must resolve to the same provider directory. A missing local module or
+native ABI prevents initialization before allocator installation.
+
 ComfyUI-OmniXPU activates this provider only when DynamicVRAM is explicitly
 enabled and the official AIMDO attempt has left no live native or allocator
 state. Linux selects the global XPU pluggable allocator; Windows selects the

@@ -59,11 +59,13 @@ if not exist "%DETOURS_LIB_DIR%\detours.lib" (
 
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 del /q "%BUILD_DIR%\*.obj" "%BUILD_DIR%\ze_loader.*" 2>nul
+python "%ROOT_DIR%\scripts\write-source-identity.py" "%ROOT_DIR%" "%BUILD_DIR%\xpu-source-identity.h"
+if errorlevel 1 exit /b 1
 
 lib.exe /nologo /def:"%ROOT_DIR%\src-xpu\ze_loader.def" /machine:x64 /out:"%BUILD_DIR%\ze_loader.lib"
 if errorlevel 1 exit /b 1
 
-set "COMMON_FLAGS=/nologo /c /O2 /MD /DAIMDO_XPU /I"%ROOT_DIR%\src" /I"%ROOT_DIR%\src-win" /FIcompiler.h"
+set "COMMON_FLAGS=/nologo /c /O2 /MD /DAIMDO_XPU /I"%ROOT_DIR%\src" /I"%ROOT_DIR%\src-win" /FIcompiler.h /FI"%BUILD_DIR%\xpu-source-identity.h""
 for %%S in (
     control.c
     debug.c
@@ -71,6 +73,9 @@ for %%S in (
     hostbuf-file-reader.c
     hostbuf-prewarm.c
     hostbuf.c
+    malloc-graph.c
+    malloc-rogue.c
+    vmm-ref.c
     model-vbar.c
     pyt-cu-plug-alloc.c
     pyt-cu-plug-alloc-async.c
@@ -108,6 +113,9 @@ icx-cl.exe /nologo -fsycl /LD /Fe:"%OUTPUT_PATH%" ^
     "%BUILD_DIR%\hostbuf-file-reader.obj" ^
     "%BUILD_DIR%\hostbuf-prewarm.obj" ^
     "%BUILD_DIR%\hostbuf.obj" ^
+    "%BUILD_DIR%\malloc-graph.obj" ^
+    "%BUILD_DIR%\malloc-rogue.obj" ^
+    "%BUILD_DIR%\vmm-ref.obj" ^
     "%BUILD_DIR%\model-vbar.obj" ^
     "%BUILD_DIR%\pyt-cu-plug-alloc.obj" ^
     "%BUILD_DIR%\pyt-cu-plug-alloc-async.obj" ^
