@@ -24,7 +24,7 @@ PROVIDER_DISTRIBUTION = "comfy-aimdo-xpu-runtime"
 PROVIDER_PACKAGE = "comfy_aimdo_xpu_runtime"
 PROVIDER_ID = "comfy_aimdo.xpu"
 ENTRY_POINT_GROUP = "comfyui_omnixpu.runtime_providers"
-SOURCE_REPOSITORY = "https://github.com/xiangyuT/comfy-aimdo-xpu.git"
+SOURCE_REPOSITORY = "https://github.com/shinosawabot/comfy-aimdo.git"
 SUPPORTED_PLATFORMS = ("linux", "win32")
 FORWARD_COMPATIBLE_VERSIONS = {
     "0.5.3": ("0.5.3", "0.5.5"),
