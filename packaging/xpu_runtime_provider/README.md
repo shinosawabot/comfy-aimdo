@@ -18,6 +18,8 @@ python packaging/xpu_runtime_provider/build_wheel.py \
   --xpu-target bmg
 ```
 
+`--xpu-target` accepts `bmg`, `ptl-h`, `dg2`, and the experimental Windows `lnl` target.
+
 The output contains a lightweight
 `comfyui_omnixpu.runtime_providers` entry point and a manifest covering the
 canonical version, exact source revision, source-wheel hash, native-library

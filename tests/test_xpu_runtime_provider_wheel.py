@@ -61,8 +61,9 @@ def _source_wheel(
     return path
 
 
+@pytest.mark.parametrize("xpu_target", ["bmg", "ptl-h", "dg2", "lnl"])
 def test_provider_wheel_has_disjoint_top_level_and_native_manifest(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, xpu_target
 ):
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1700000000")
     builder = _load_builder()
@@ -75,7 +76,7 @@ def test_provider_wheel_has_disjoint_top_level_and_native_manifest(
         output_directory=tmp_path / "dist",
         source_revision="a" * 40,
         torch_version="2.13.0+xpu",
-        xpu_target="bmg",
+        xpu_target=xpu_target,
     )
 
     assert provider.name == (

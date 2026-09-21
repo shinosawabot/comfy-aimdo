@@ -26,6 +26,7 @@ PROVIDER_ID = "comfy_aimdo.xpu"
 ENTRY_POINT_GROUP = "comfyui_omnixpu.runtime_providers"
 SOURCE_REPOSITORY = "https://github.com/shinosawabot/comfy-aimdo.git"
 SUPPORTED_PLATFORMS = ("linux", "win32")
+SUPPORTED_XPU_TARGETS = ("bmg", "ptl-h", "dg2", "lnl")
 FORWARD_COMPATIBLE_VERSIONS = {
     "0.5.3": ("0.5.3", "0.5.5"),
 }
@@ -217,8 +218,8 @@ def build_provider_wheel(
         raise ValueError("source revision must be a lowercase 40-character Git SHA")
     if not torch_version.endswith("+xpu"):
         raise ValueError("torch version must identify an XPU build with +xpu")
-    if xpu_target not in {"bmg", "ptl-h", "dg2"}:
-        raise ValueError("xpu target must be bmg, ptl-h or dg2")
+    if xpu_target not in SUPPORTED_XPU_TARGETS:
+        raise ValueError(f"xpu target must be one of {SUPPORTED_XPU_TARGETS}")
 
     (
         source_version,
@@ -319,7 +320,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--torch-version", required=True)
-    parser.add_argument("--xpu-target", choices=("bmg", "ptl-h", "dg2"), required=True)
+    parser.add_argument("--xpu-target", choices=SUPPORTED_XPU_TARGETS, required=True)
     return parser.parse_args()
 
 
